@@ -5,19 +5,29 @@ const errorHandler = require("./middleware/error-handler");
 
 const app = express();
 
+global.user_id = null;
+global.users = [];
+global.tasks = [];
+
 // Logging middleware (must call next()).
 app.use((req, res, next) => {
   console.log(req.method, req.path, req.query);
   next();
 });
 
+app.use(express.json({ limit: "1kb" }));
+
+const userRouter = require("./routes/userRoutes");
+
 app.get("/", (req, res) => {
-  res.send("Hello, World!");
+  res.json({ message: "Hello, World!" });
 });
 
 app.post("/testpost", (req, res) => {
-  res.send("Test post received.");
+  res.json({ message: "Test post received." });
 });
+
+app.use("/api/users", userRouter);
 
 app.use(notFound);
 app.use(errorHandler);
