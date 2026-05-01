@@ -77,5 +77,8 @@ app.use((req, res) => {
   res.status(404).json({ error: "Route not found", requestId: req.requestId });
 });
 
-const server = app.listen(3000, () => console.log("Server listening on port 3000"));
-module.exports = server;
+if (require.main === module) {
+  app.listen(3000, () => console.log("Server listening on port 3000"));
+}
+
+module.exports = app;
