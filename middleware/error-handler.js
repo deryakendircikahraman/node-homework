@@ -1,6 +1,12 @@
 const { StatusCodes } = require("http-status-codes");
 
-const errorHandlerMiddleware = async (err, req, res, next) => {
+const errorHandlerMiddleware = async (err, req, res) => {
+  if (err?.code === "ECONNREFUSED" && err?.port === 5432) {
+    console.log(
+      "The database connection was refused.  Is your database service running?",
+    );
+  }
+
   console.error(
     "Internal server error: ",
     err?.constructor?.name,
@@ -10,7 +16,7 @@ const errorHandlerMiddleware = async (err, req, res, next) => {
   if (!res.headersSent) {
     return res
       .status(StatusCodes.INTERNAL_SERVER_ERROR)
-      .send("An internal server error occurred.");
+      .json({ message: "An internal server error occurred." });
   }
 };
 
