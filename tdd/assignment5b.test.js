@@ -162,7 +162,7 @@ describe("testing task creation", () => {
     expect(saveData.title).toBe("first task");
   });
   it("The object has the right value for isCompleted.", () => {
-    expect(saveData.is_completed).toBe(false);
+    expect(saveData.isCompleted).toBe(false);
   });
 });
 

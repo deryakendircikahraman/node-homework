@@ -2,7 +2,7 @@ const express = require("express");
 
 const notFound = require("./middleware/not-found");
 const errorHandler = require("./middleware/error-handler");
-const pool = require("./db/pg-pool");
+const prisma = require("./db/prisma");
 
 const app = express();
 
@@ -26,12 +26,14 @@ app.get("/", (req, res) => {
 
 app.get("/health", async (req, res) => {
   try {
-    await pool.query("SELECT 1");
-    return res.json({ status: "ok", db: "connected" });
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: "ok", db: "connected" });
   } catch (err) {
-    return res
-      .status(500)
-      .json({ message: `db not connected, error: ${err.message}` });
+    res.status(500).json({
+      status: "error",
+      db: "not connected",
+      error: err.message,
+    });
   }
 });
 
@@ -65,7 +67,8 @@ async function shutdown(code = 0) {
   isShuttingDown = true;
   console.log("Shutting down gracefully...");
   try {
-    await pool.end();
+    await prisma.$disconnect();
+    console.log("Prisma disconnected");
     await new Promise((resolve) => server.close(resolve));
     console.log("HTTP server closed.");
   } catch (err) {
@@ -89,4 +92,3 @@ process.on("unhandledRejection", (reason) => {
 });
 
 module.exports = { app, server };
-
