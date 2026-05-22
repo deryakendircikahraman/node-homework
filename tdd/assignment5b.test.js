@@ -1,6 +1,6 @@
 require("dotenv").config();
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
-const pool = require("../db/pg-pool");
+const prisma = require("../db/prisma");
 const httpMocks = require("node-mocks-http");
 const {
   index,
@@ -21,7 +21,7 @@ describe("test that database and tables exist", () => {
   it("connects to database", async () => {
     let databaseExists = true;
     try {
-      await pool.query("SELECT 1;");
+      await prisma.$queryRaw`SELECT 1`;
     } catch (err) {
       console.log("Error: the test database hasn't been created.");
       databaseExists = false;
@@ -29,15 +29,15 @@ describe("test that database and tables exist", () => {
     expect(databaseExists).toBe(true);
   });
   it("clears the tasks table", async () => {
-    expect(async () => await pool.query("DELETE FROM tasks;")).not.toThrow();
+    await expect(prisma.task.deleteMany()).resolves.toBeDefined();
   });
   it("clears the users table", async () => {
-    expect(async () => await pool.query("DELETE FROM users;")).not.toThrow();
+    await expect(prisma.user.deleteMany()).resolves.toBeDefined();
   });
 });
 
 afterAll(async () => {
-  await pool.end();
+  await prisma.$disconnect();
 });
 
 describe("testing logon, register, and logoff", () => {
@@ -53,10 +53,10 @@ describe("testing logon, register, and logoff", () => {
     saveRes = httpMocks.createResponse();
     await register(req, saveRes, () => {});
     expect(saveRes.statusCode).toBe(201);
-    const result = await pool.query("SELECT * FROM users WHERE email = $1", [
-      "jim@sample.com",
-    ]);
-    user1 = result.rows[0].id;
+    const row = await prisma.user.findUnique({
+      where: { email: "jim@sample.com" },
+    });
+    user1 = row.id;
   });
 
   it("The user can be logged on", async () => {
@@ -110,10 +110,10 @@ describe("testing logon, register, and logoff", () => {
     await register(req, saveRes, () => {});
     expect(saveRes.statusCode).toBe(201);
 
-    const result = await pool.query("SELECT * FROM users WHERE email = $1", [
-      "manuel@sample.com",
-    ]);
-    user2 = result.rows[0].id;
+    const row = await prisma.user.findUnique({
+      where: { email: "manuel@sample.com" },
+    });
+    user2 = row.id;
   });
 
   it("You can logon as that new user.", async () => {
@@ -162,7 +162,7 @@ describe("testing task creation", () => {
     expect(saveData.title).toBe("first task");
   });
   it("The object has the right value for isCompleted.", () => {
-    expect(saveData.is_completed).toBe(false);
+    expect(saveData.isCompleted).toBe(false);
   });
 });
 

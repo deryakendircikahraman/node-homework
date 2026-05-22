@@ -1,27 +1,89 @@
 const { StatusCodes } = require("http-status-codes");
+const crypto = require("crypto");
+const util = require("util");
+const { Prisma } = require("@prisma/client");
+const prisma = require("../db/prisma");
+const { userSchema } = require("../validation/userSchema");
 
-const register = async (req, res) => {
-  const newUser = { ...req.body };
-  global.users.push(newUser);
-  global.user_id = newUser;
+const scrypt = util.promisify(crypto.scrypt);
 
-  const safeUser = { ...req.body };
-  delete safeUser.password;
-  return res.status(StatusCodes.CREATED).json(safeUser);
-};
+async function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const derivedKey = await scrypt(password, salt, 64);
+  return `${salt}:${derivedKey.toString("hex")}`;
+}
 
-const logon = async (req, res) => {
-  const { email, password } = req.body || {};
-  const foundUser = global.users.find((u) => u.email === email);
+async function comparePassword(inputPassword, storedHash) {
+  const [salt, key] = storedHash.split(":");
+  const keyBuffer = Buffer.from(key, "hex");
+  const derivedKey = await scrypt(inputPassword, salt, 64);
+  return crypto.timingSafeEqual(keyBuffer, derivedKey);
+}
 
-  if (!foundUser || foundUser.password !== password) {
-    return res
-      .status(StatusCodes.UNAUTHORIZED)
-      .json({ message: "Authentication Failed" });
+const register = async (req, res, next = () => {}) => {
+  if (!req.body) req.body = {};
+  const { error, value } = userSchema.validate(req.body, { abortEarly: false });
+  if (error) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      message: "Validation failed",
+      details: error.details,
+    });
   }
 
-  global.user_id = foundUser;
-  return res.status(StatusCodes.OK).json({ name: foundUser.name, email: foundUser.email });
+  const hashedPassword = await hashPassword(value.password);
+
+  try {
+    const user = await prisma.user.create({
+      data: {
+        email: value.email,
+        name: value.name,
+        hashedPassword,
+      },
+      select: { id: true, name: true, email: true },
+    });
+
+    global.user_id = user.id;
+    return res.status(StatusCodes.CREATED).json({
+      name: user.name,
+      email: user.email,
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ message: "Email already registered" });
+    }
+    return next(err);
+  }
+};
+
+const logon = async (req, res, next = () => {}) => {
+  try {
+    if (!req.body) req.body = {};
+    const { email, password } = req.body;
+    const normalizedEmail = typeof email === "string" ? email.toLowerCase() : "";
+
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+    if (!user) {
+      return res
+        .status(StatusCodes.UNAUTHORIZED)
+        .json({ message: "Authentication Failed" });
+    }
+
+    const ok = await comparePassword(password, user.hashedPassword);
+    if (!ok) {
+      return res
+        .status(StatusCodes.UNAUTHORIZED)
+        .json({ message: "Authentication Failed" });
+    }
+
+    global.user_id = user.id;
+    return res.status(StatusCodes.OK).json({ name: user.name, email: user.email });
+  } catch (err) {
+    return next(err);
+  }
 };
 
 const logoff = async (req, res) => {
@@ -30,4 +92,3 @@ const logoff = async (req, res) => {
 };
 
 module.exports = { register, logon, logoff };
-
