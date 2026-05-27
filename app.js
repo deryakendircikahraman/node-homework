@@ -18,6 +18,7 @@ app.use(express.json({ limit: "1kb" }));
 
 const userRouter = require("./routes/userRoutes");
 const taskRouter = require("./routes/taskRoutes");
+const analyticsRouter = require("./routes/analyticsRoutes");
 const authMiddleware = require("./middleware/auth");
 
 app.get("/", (req, res) => {
@@ -43,6 +44,7 @@ app.post("/testpost", (req, res) => {
 
 app.use("/api/users", userRouter);
 app.use("/api/tasks", authMiddleware, taskRouter);
+app.use("/api/analytics", authMiddleware, analyticsRouter);
 
 app.use(notFound);
 app.use(errorHandler);
