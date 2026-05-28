@@ -1,4 +1,10 @@
+require("dotenv").config();
+
 const express = require("express");
+const cookieParser = require("cookie-parser");
+const helmet = require("helmet");
+const { xss } = require("express-xss-sanitizer");
+const rateLimiter = require("express-rate-limit");
 
 const notFound = require("./middleware/not-found");
 const errorHandler = require("./middleware/error-handler");
@@ -6,7 +12,15 @@ const prisma = require("./db/prisma");
 
 const app = express();
 
-global.user_id = null;
+app.set("trust proxy", 1);
+
+app.use(
+  rateLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+  }),
+);
+app.use(helmet());
 
 // Logging middleware (must call next()).
 app.use((req, res, next) => {
@@ -15,11 +29,12 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json({ limit: "1kb" }));
+app.use(cookieParser());
+app.use(xss());
 
 const userRouter = require("./routes/userRoutes");
 const taskRouter = require("./routes/taskRoutes");
 const analyticsRouter = require("./routes/analyticsRoutes");
-const authMiddleware = require("./middleware/auth");
 
 app.get("/", (req, res) => {
   res.json({ message: "Hello, World!" });
@@ -43,8 +58,8 @@ app.post("/testpost", (req, res) => {
 });
 
 app.use("/api/users", userRouter);
-app.use("/api/tasks", authMiddleware, taskRouter);
-app.use("/api/analytics", authMiddleware, analyticsRouter);
+app.use("/api/tasks", taskRouter);
+app.use("/api/analytics", analyticsRouter);
 
 app.use(notFound);
 app.use(errorHandler);
