@@ -1,0 +1,2 @@
+Deployed application URL (Render.com):
+https://REPLACE-WITH-YOUR-RENDER-URL.onrender.com
