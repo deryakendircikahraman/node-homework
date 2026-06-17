@@ -32,6 +32,9 @@ const cookieFlags = (req) => {
 
 const setJwtCookie = (req, res, user) => {
   const payload = { id: user.id, csrfToken: randomUUID() };
+  if (user.roles) {
+    payload.roles = user.roles;
+  }
   const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" });
   res.cookie("jwt", token, { ...cookieFlags(req), maxAge: 3600000 });
   return payload.csrfToken;
@@ -145,6 +148,7 @@ const logon = async (req, res, next = () => {}) => {
         name: true,
         email: true,
         hashedPassword: true,
+        roles: true,
       },
     });
     if (!user) {
@@ -176,4 +180,71 @@ const logoff = async (req, res) => {
   return res.status(StatusCodes.OK).end();
 };
 
-module.exports = { register, logon, logoff };
+const googleLogon = async (req, res, next = () => {}) => {
+  try {
+    if (!req.body?.code) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ message: "Authorization code is required." });
+    }
+
+    const { OAuth2Client } = require("google-auth-library");
+    const client = new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      "postmessage",
+    );
+
+    const { tokens } = await client.getToken(req.body.code);
+    const ticket = await client.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const email = payload.email?.toLowerCase();
+    const name = (payload.name || email?.split("@")[0] || "User").slice(0, 30);
+
+    if (!email) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ message: "Google account email not available." });
+    }
+
+    let user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, name: true, email: true, roles: true },
+    });
+
+    let statusCode = StatusCodes.OK;
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email,
+          name,
+          hashedPassword: "oauth:no-password",
+        },
+        select: { id: true, name: true, email: true, roles: true },
+      });
+      statusCode = StatusCodes.CREATED;
+    }
+
+    const csrfToken = setJwtCookie(req, res, user);
+
+    if (statusCode === StatusCodes.CREATED) {
+      return res.status(statusCode).json({
+        user,
+        csrfToken,
+      });
+    }
+
+    return res.status(statusCode).json({
+      name: user.name,
+      email: user.email,
+      csrfToken,
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+module.exports = { register, logon, logoff, googleLogon };

@@ -1,2 +1,61 @@
 Deployed application URL (Render.com):
 https://node-homework-3osa.onrender.com
+
+Swagger API documentation:
+http://localhost:3000/api-docs
+https://node-homework-3osa.onrender.com/api-docs
+
+Enhancements added for Assignment 11 (backend only):
+
+1) Google OAuth (/api/users/googleLogon)
+   POST /api/users/googleLogon
+   Body: { "code": "<google authorization code>" }
+   Notes: Creates user if needed (hashedPassword placeholder for OAuth users). Returns 201 for new users, 200 for existing. Sets JWT cookie and returns csrfToken.
+
+2) Role-based access control (manager)
+   - User.roles is a comma-separated string (example: "manager")
+   - Roles are stored in JWT at logon
+   - All /api/analytics routes require manager role (401 otherwise)
+   - Set roles with Prisma Studio: UPDATE users SET roles='manager' WHERE email='...';
+
+3) Folders
+   GET  /api/folders
+   POST /api/folders
+   Body: { "name": "Work" }
+   Tasks support optional folderId on create/update.
+   GET /api/tasks?folder=<folderId>
+
+4) Task progress logs
+   POST /api/tasks/:id/logs
+   Body: { "message": "Started implementation" }
+   GET  /api/tasks/:id?includeLogs=true
+
+5) Recycle bin (soft delete)
+   DELETE /api/tasks/:id            -> moves task to trash (trash=true)
+   GET    /api/tasks?trash=true      -> list trashed tasks
+   GET    /api/tasks?trash=all       -> include trashed and active tasks
+   PATCH  /api/tasks/:id             Body: { "trash": false } to restore
+   DELETE /api/tasks/trash           -> permanently delete all trashed tasks
+
+6) Bulk update/delete by query filters
+   PATCH  /api/tasks/many?isCompleted=false
+   Body: { "isCompleted": true }
+   DELETE /api/tasks/many?isCompleted=true
+   (Also supports folder, trash, find query params like GET /api/tasks)
+
+7) Bulk update/delete by ID array
+   PATCH  /api/tasks/by-ids
+   Body: { "ids": [1,2,3], "isCompleted": true }
+   DELETE /api/tasks/by-ids
+   Body: { "ids": [1,2,3] }
+
+8) Backlog
+   GET    /api/backlog
+   POST   /api/backlog
+   Body: { "title": "Future task", "priority": "high" }
+   PATCH  /api/backlog/:id
+   DELETE /api/backlog/:id
+   POST   /api/backlog/:id/claim   -> creates task and removes backlog item (transaction)
+
+Protected routes require JWT cookie and X-CSRF-TOKEN header for POST/PATCH/DELETE.
+Register in Postman/tests can use header X-Recaptcha-Test with RECAPTCHA_BYPASS value.

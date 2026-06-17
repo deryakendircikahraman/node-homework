@@ -35,6 +35,10 @@ app.use(xss());
 const userRouter = require("./routes/userRoutes");
 const taskRouter = require("./routes/taskRoutes");
 const analyticsRouter = require("./routes/analyticsRoutes");
+const folderRouter = require("./routes/folderRoutes");
+const backlogRouter = require("./routes/backlogRoutes");
+const swaggerSpec = require("./swagger");
+const swaggerUi = require("swagger-ui-express");
 
 app.get("/", (req, res) => {
   res.json({ message: "Hello, World!" });
@@ -60,6 +64,9 @@ app.post("/testpost", (req, res) => {
 app.use("/api/users", userRouter);
 app.use("/api/tasks", taskRouter);
 app.use("/api/analytics", analyticsRouter);
+app.use("/api/folders", folderRouter);
+app.use("/api/backlog", backlogRouter);
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use(notFound);
 app.use(errorHandler);
