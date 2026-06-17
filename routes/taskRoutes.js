@@ -9,7 +9,6 @@ const {
   update,
   deleteTask,
   emptyTrash,
-  addTaskLog,
   bulkCreate,
   bulkUpdateMany,
   bulkDeleteMany,
@@ -26,7 +25,6 @@ router.patch("/by-ids", bulkUpdateByIds);
 router.delete("/by-ids", bulkDeleteByIds);
 router.delete("/trash", emptyTrash);
 router.route("/").get(index).post(create);
-router.post("/:id/logs", addTaskLog);
 router.route("/:id").get(show).patch(update).delete(deleteTask);
 
 module.exports = router;

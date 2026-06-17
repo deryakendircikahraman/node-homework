@@ -21,19 +21,8 @@ const folderSchema = Joi.object({
   name: Joi.string().trim().min(1).max(255).required(),
 });
 
-const backlogSchema = Joi.object({
-  title: Joi.string().trim().min(3).max(255).required(),
-  priority: Joi.string().valid("low", "medium", "high").default("medium"),
-});
-
-const taskLogSchema = Joi.object({
-  message: Joi.string().trim().min(1).max(500).required(),
-});
-
 module.exports = {
   taskSchema,
   patchTaskSchema,
   folderSchema,
-  backlogSchema,
-  taskLogSchema,
 };

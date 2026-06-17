@@ -4,7 +4,6 @@ const prisma = require("../db/prisma");
 const {
   taskSchema,
   patchTaskSchema,
-  taskLogSchema,
 } = require("../validation/taskSchema");
 
 const taskSelect = {
@@ -144,22 +143,14 @@ const show = async (req, res, next = () => {}) => {
         .json({ message: "The task ID passed is not valid." });
     }
 
-    const select = {
-      ...taskSelect,
-      User: { select: userSelect },
-    };
-    if (req.query.includeLogs === "true") {
-      select.TaskLog = {
-        select: { id: true, message: true, createdAt: true },
-        orderBy: { createdAt: "desc" },
-      };
-    }
-
     const task = await prisma.task.findUnique({
       where: {
         id_userId: { id: taskId, userId: req.user.id },
       },
-      select,
+      select: {
+        ...taskSelect,
+        User: { select: userSelect },
+      },
     });
     if (!task) {
       return res.status(StatusCodes.NOT_FOUND).json({ message: "That task was not found" });
@@ -252,39 +243,6 @@ const emptyTrash = async (req, res, next = () => {}) => {
       message: "Trash emptied.",
       deletedCount: result.count,
     });
-  } catch (err) {
-    return next(err);
-  }
-};
-
-const addTaskLog = async (req, res, next = () => {}) => {
-  try {
-    const taskId = parseInt(req.params?.id, 10);
-    if (!taskId) {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "The task ID passed is not valid." });
-    }
-
-    if (!req.body) req.body = {};
-    const { error, value } = taskLogSchema.validate(req.body, { abortEarly: false });
-    if (error) {
-      return res.status(StatusCodes.BAD_REQUEST).json({ message: error.message });
-    }
-
-    const task = await prisma.task.findUnique({
-      where: { id_userId: { id: taskId, userId: req.user.id } },
-      select: { id: true },
-    });
-    if (!task) {
-      return res.status(StatusCodes.NOT_FOUND).json({ message: "That task was not found" });
-    }
-
-    const log = await prisma.taskLog.create({
-      data: { taskId, message: value.message },
-      select: { id: true, message: true, createdAt: true },
-    });
-    return res.status(StatusCodes.CREATED).json(log);
   } catch (err) {
     return next(err);
   }
@@ -437,7 +395,6 @@ module.exports = {
   update,
   deleteTask,
   emptyTrash,
-  addTaskLog,
   bulkCreate,
   bulkUpdateMany,
   bulkDeleteMany,

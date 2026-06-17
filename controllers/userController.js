@@ -32,9 +32,6 @@ const cookieFlags = (req) => {
 
 const setJwtCookie = (req, res, user) => {
   const payload = { id: user.id, csrfToken: randomUUID() };
-  if (user.roles) {
-    payload.roles = user.roles;
-  }
   const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" });
   res.cookie("jwt", token, { ...cookieFlags(req), maxAge: 3600000 });
   return payload.csrfToken;
@@ -148,7 +145,6 @@ const logon = async (req, res, next = () => {}) => {
         name: true,
         email: true,
         hashedPassword: true,
-        roles: true,
       },
     });
     if (!user) {
@@ -212,7 +208,7 @@ const googleLogon = async (req, res, next = () => {}) => {
 
     let user = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, name: true, email: true, roles: true },
+      select: { id: true, name: true, email: true },
     });
 
     let statusCode = StatusCodes.OK;
@@ -223,7 +219,7 @@ const googleLogon = async (req, res, next = () => {}) => {
           name,
           hashedPassword: "oauth:no-password",
         },
-        select: { id: true, name: true, email: true, roles: true },
+        select: { id: true, name: true, email: true },
       });
       statusCode = StatusCodes.CREATED;
     }
