@@ -28,7 +28,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: "1kb" }));
+app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 app.use(xss());
 
