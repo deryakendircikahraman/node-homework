@@ -3,7 +3,38 @@ const { Prisma } = require("@prisma/client");
 const prisma = require("../db/prisma");
 const { taskSchema, patchTaskSchema } = require("../validation/taskSchema");
 
-const taskSelect = { id: true, title: true, isCompleted: true };
+const taskSelect = {
+  id: true,
+  title: true,
+  isCompleted: true,
+  priority: true,
+  createdAt: true,
+};
+
+const userSelect = {
+  name: true,
+  email: true,
+};
+
+const buildPagination = (page, limit, total) => ({
+  page,
+  limit,
+  total,
+  pages: Math.ceil(total / limit),
+  hasNext: page * limit < total,
+  hasPrev: page > 1,
+});
+
+const getOrderBy = (query) => {
+  const validSortFields = ["title", "priority", "createdAt", "id", "isCompleted"];
+  const sortBy = query.sortBy || "createdAt";
+  const sortDirection = query.sortDirection === "asc" ? "asc" : "desc";
+
+  if (validSortFields.includes(sortBy)) {
+    return { [sortBy]: sortDirection };
+  }
+  return { createdAt: "desc" };
+};
 
 const create = async (req, res, next = () => {}) => {
   try {
@@ -17,6 +48,7 @@ const create = async (req, res, next = () => {}) => {
       data: {
         title: value.title,
         isCompleted: value.isCompleted,
+        priority: value.priority,
         userId: global.user_id,
       },
       select: taskSelect,
@@ -30,15 +62,34 @@ const create = async (req, res, next = () => {}) => {
 
 const index = async (req, res, next = () => {}) => {
   try {
-    const tasks = await prisma.task.findMany({
-      where: { userId: global.user_id },
-      orderBy: { id: "asc" },
-      select: taskSelect,
-    });
-    if (!tasks.length) {
-      return res.status(StatusCodes.NOT_FOUND).json({ message: "No tasks found" });
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+
+    const whereClause = { userId: global.user_id };
+
+    if (req.query.find) {
+      whereClause.title = {
+        contains: req.query.find,
+        mode: "insensitive",
+      };
     }
-    return res.status(StatusCodes.OK).json(tasks);
+
+    const tasks = await prisma.task.findMany({
+      where: whereClause,
+      select: {
+        ...taskSelect,
+        User: { select: userSelect },
+      },
+      skip,
+      take: limit,
+      orderBy: getOrderBy(req.query),
+    });
+
+    const totalTasks = await prisma.task.count({ where: whereClause });
+    const pagination = buildPagination(page, limit, totalTasks);
+
+    return res.status(StatusCodes.OK).json({ tasks, pagination });
   } catch (err) {
     return next(err);
   }
@@ -57,7 +108,10 @@ const show = async (req, res, next = () => {}) => {
       where: {
         id_userId: { id: taskId, userId: global.user_id },
       },
-      select: taskSelect,
+      select: {
+        ...taskSelect,
+        User: { select: userSelect },
+      },
     });
     if (!task) {
       return res.status(StatusCodes.NOT_FOUND).json({ message: "That task was not found" });
@@ -131,4 +185,46 @@ const deleteTask = async (req, res, next = () => {}) => {
   }
 };
 
-module.exports = { create, index, show, update, deleteTask };
+const bulkCreate = async (req, res, next = () => {}) => {
+  try {
+    const { tasks } = req.body;
+
+    if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        error: "Invalid request data. Expected an array of tasks.",
+      });
+    }
+
+    const validTasks = [];
+    for (const task of tasks) {
+      const { error, value } = taskSchema.validate(task);
+      if (error) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          error: "Validation failed",
+          details: error.details,
+        });
+      }
+      validTasks.push({
+        title: value.title,
+        isCompleted: value.isCompleted || false,
+        priority: value.priority || "medium",
+        userId: global.user_id,
+      });
+    }
+
+    const result = await prisma.task.createMany({
+      data: validTasks,
+      skipDuplicates: false,
+    });
+
+    return res.status(StatusCodes.CREATED).json({
+      message: "success!",
+      tasksCreated: result.count,
+      totalRequested: validTasks.length,
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+module.exports = { create, index, show, update, deleteTask, bulkCreate };
