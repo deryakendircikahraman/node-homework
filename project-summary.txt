@@ -1,2 +1,45 @@
 Deployed application URL (Render.com):
 https://node-homework-3osa.onrender.com
+
+Swagger API documentation:
+http://localhost:3000/api-docs
+https://node-homework-3osa.onrender.com/api-docs
+
+Enhancements added for Assignment 11 (backend only):
+
+1) Google OAuth (/api/users/googleLogon)
+   POST /api/users/googleLogon
+   Body: { "code": "<google authorization code>" }
+   Notes: Creates user if needed (hashedPassword placeholder for OAuth users). Returns 201 for new users, 200 for existing. Sets JWT cookie and returns csrfToken.
+
+2) Folders
+   GET  /api/folders
+   POST /api/folders
+   Body: { "name": "Work" }
+   Tasks support optional folderId on create/update.
+   GET /api/tasks?folder=<folderId>
+
+3) Recycle bin (soft delete)
+   DELETE /api/tasks/:id            -> moves task to trash (trash=true)
+   GET    /api/tasks?trash=true      -> list trashed tasks
+   GET    /api/tasks?trash=all       -> include trashed and active tasks
+   PATCH  /api/tasks/:id             Body: { "trash": false } to restore
+   DELETE /api/tasks/trash           -> permanently delete all trashed tasks
+
+4) Bulk update/delete by query filters
+   PATCH  /api/tasks/many?isCompleted=false
+   Body: { "isCompleted": true }
+   DELETE /api/tasks/many?isCompleted=true
+   (Also supports folder, trash, find query params like GET /api/tasks)
+
+5) Bulk update/delete by ID array
+   PATCH  /api/tasks/by-ids
+   Body: { "ids": [1,2,3], "isCompleted": true }
+   DELETE /api/tasks/by-ids
+   Body: { "ids": [1,2,3] }
+
+6) Swagger API documentation
+   GET /api-docs
+
+Protected routes require JWT cookie and X-CSRF-TOKEN header for POST/PATCH/DELETE.
+Register in Postman/tests can use header X-Recaptcha-Test with RECAPTCHA_BYPASS value.

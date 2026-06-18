@@ -35,6 +35,18 @@ app.use(xss());
 const userRouter = require("./routes/userRoutes");
 const taskRouter = require("./routes/taskRoutes");
 const analyticsRouter = require("./routes/analyticsRoutes");
+const folderRouter = require("./routes/folderRoutes");
+const swaggerUi = require("swagger-ui-express");
+
+const loadSwaggerSpec = () => {
+  delete require.cache[require.resolve("./swagger")];
+  delete require.cache[require.resolve("./docs/swagger-paths.js")];
+  return require("./swagger");
+};
+
+app.get("/api-docs.json", (req, res) => {
+  res.json(loadSwaggerSpec());
+});
 
 app.get("/", (req, res) => {
   res.json({ message: "Hello, World!" });
@@ -60,6 +72,13 @@ app.post("/testpost", (req, res) => {
 app.use("/api/users", userRouter);
 app.use("/api/tasks", taskRouter);
 app.use("/api/analytics", analyticsRouter);
+app.use("/api/folders", folderRouter);
+app.use("/api-docs", swaggerUi.serve);
+app.use("/api-docs", (req, res, next) => {
+  swaggerUi.setup(loadSwaggerSpec(), {
+    swaggerOptions: { persistAuthorization: true },
+  })(req, res, next);
+});
 
 app.use(notFound);
 app.use(errorHandler);
