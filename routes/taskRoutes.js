@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
+const jwtMiddleware = require("../middleware/jwtMiddleware");
 const {
   index,
   create,
@@ -9,6 +10,8 @@ const {
   deleteTask,
   bulkCreate,
 } = require("../controllers/taskController");
+
+router.use(jwtMiddleware);
 
 router.post("/bulk", bulkCreate);
 router.route("/").get(index).post(create);

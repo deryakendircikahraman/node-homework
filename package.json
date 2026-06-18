@@ -7,6 +7,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "tdd": "./tdd.sh",
+    "test7": "./tdd.sh assignment7",
+    "test8": "./tdd.sh assignment8",
     "start": "node app.js",
     "week3": "nodemon ./week-3-middleware/app",
     "lesson9TDD": "NODE_ENV=test jest --testPathPatterns=test/ --verbose --maxWorkers=1 --config ./lesson9TDD/jestConfig/jest.config.js",
